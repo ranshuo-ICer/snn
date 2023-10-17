@@ -1,0 +1,5 @@
+python
+*.out
+tinyODIN
+.vscode
+rtl/teroshdl.txt
