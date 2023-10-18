@@ -1,56 +1,52 @@
 module synaptic #(
     parameter N = 128,
+    parameter M = 64,
+    parameter P = 2,
     parameter WID = 8
 )(
     input clk, rst_n,
 
-    input [3:0] enc,
+    input [31:0] sparse_bits,
     input [0:0] ipt_valid,
+    output ipt_ready,
 
-    output reg opt_valid,
-    output reg [7:0] opt_syn
+    output opt_valid,
+    input opt_ready,
+    output [11:0] opt_syn
 );
-parameter ADDRWID = $clog2(N);
-reg [7:0] mem[N-1:0];
-reg [9:0] sum;
 
-reg [ADDRWID-1:0] addr;
+// idx_enc Outputs
+wire  [0:0]  idx_enc_ipt_ready;
+wire  [5:0]  idx_enc_enc;
+wire  [0:0]  idx_enc_opt_valid;
+wire  [0:0]  idx_enc_opt_ready;
 
-reg [3:0] cnt;
+idx_enc_32  u_idx_enc (
+    .clk                     ( clk           ),
+    .rst_n                   ( rst_n         ),
+    .ipt_ready               ( ipt_ready     ),
+    .ipt_valid               ( ipt_valid     ),
+    .sparse_bits             ( sparse_bits   ),
+    
+    .enc                     ( idx_enc_enc           ),
+    .opt_ready               ( idx_enc_opt_ready     ),
+    .opt_valid               ( idx_enc_opt_valid     )
+);
 
-always @(posedge clk , negedge rst_n) begin
-    if (rst_n == 1'b0) begin
-        addr <= 0;
-    end else begin
-        if (ipt_valid) begin
-            addr <= addr + enc[2:0] + enc[3];
-        end
-    end
-end
 
+synaptic_accum #(
+    .N       ( N      ),
+    .WID     ( WID        ))
+ u_synaptic_accum (
+    .clk                     ( clk         ),
+    .rst_n                   ( rst_n       ),
+    .enc                     ( idx_enc_enc         ),
+    .ipt_valid               ( idx_enc_opt_valid   ),
+    .ipt_ready               ( idx_enc_opt_ready   ),
 
-always @(posedge clk , negedge rst_n) begin
-    if (rst_n == 1'b0) begin
-        cnt <= 0;
-    end else begin
-        cnt <= ipt_valid ? cnt + enc[3]: cnt;
-    end
-end
-
-always @(posedge clk , negedge rst_n) begin
-    if (rst_n == 1'b0) begin
-        opt_valid = 0;
-    end else begin
-        opt_valid = cnt == 4'hf & enc[3];
-    end
-end
-
-always @(posedge clk, rst_n) begin
-    if (rst_n == 1'b0) begin
-        opt_syn <= 0;
-    end else begin
-        opt_syn <= ipt_valid&enc[3]==0 ? opt_syn + mem[addr]:opt_syn;
-    end
-end
+    .opt_ready               ( opt_ready),
+    .opt_valid               ( opt_valid   ),
+    .opt_syn                 ( opt_syn     )
+);
 
 endmodule
